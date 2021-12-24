@@ -2,7 +2,7 @@
 
 ## hardware
 
-SCD41 connected to the board using I2c bus (SDA & SCL pins wired) - see the resources folder for devices information.
+[SCD41](https://www.sensirion.com/en/environmental-sensors/carbon-dioxide-sensors/carbon-dioxide-sensor-scd4x/) connected to [TTGO board](http://www.lilygo.cn/claprod_view.aspx?TypeId=62&Id=1126&FId=t28:62:28) using I2c bus (SDA & SCL pins wired) - see the resources folder for devices information.
 
 ## software
 

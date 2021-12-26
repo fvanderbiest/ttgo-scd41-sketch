@@ -5,6 +5,7 @@
 #include "TFT_eSPI.h"
 #include "SPI.h"
 #include "TaskScheduler.h"
+#include "Button2.h"
 // splash screen:
 #include "bmp.h"
 // fonts:
@@ -23,14 +24,21 @@ Now you can convert it to an array using https://tomeko.net/online_tools/file_to
 Fonts as arrays are loaded as tabs.
 */
 
+#define BUTTON_1 35
+#define BUTTON_2 0
+#define ADC_PIN 34
+Button2 btn1(BUTTON_1);
+Button2 btn2(BUTTON_2);
+
 void measure();
-Task mainTask(2000, TASK_FOREVER, &measure);
+Task mainTask(5000, TASK_FOREVER, &measure);
 
 SensirionI2CScd4x scd;
 
 TFT_eSPI tft = TFT_eSPI(135, 240); // pins defined in User_Setup.h
 Scheduler runner;
 int co2;
+int calibrationInProgress = 0;
 
 // For long time delay, it is recommended to use shallow sleep, which can effectively reduce the current consumption
 void espDelay(int ms)
@@ -43,20 +51,44 @@ void espDelay(int ms)
 void setup()
 {
   Serial.begin(115200);
-  //Wire.setClock(50000); // 50kHz, recommended for SCD30
-  //Serial.println("SCD30");
   Wire.begin();
-  
+  btn1.setPressedHandler([](Button2 & b) {
+    showVoltage();
+  });
+  btn2.setLongClickTime(2000);
+  btn2.setPressedHandler([](Button2 & b) {
+    // stop measurements...
+    mainTask.disable();
+    tft.fillScreen(TFT_WHITE);
+    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    tft.loadFont(Purisa_24);
+    tft.drawString("Appui 2s", tft.width()/2, tft.height()/2-50);
+    tft.drawString("pour", tft.width()/2, tft.height()/2);
+    tft.drawString("calibration", tft.width()/2, tft.height()/2+50);
+    tft.unloadFont();
+  });
+  btn2.setReleasedHandler([](Button2 & b) {
+    if (calibrationInProgress == 0) {
+      mainTask.enable();
+    }
+  });
+  btn2.setLongClickHandler([](Button2 & b) {
+    calibrationInProgress = 1;
+    tft.fillScreen(TFT_WHITE);
+    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    tft.loadFont(Purisa_24);
+    tft.drawString("Calibration", tft.width()/2, tft.height()/2-50);
+    tft.drawString("en cours", tft.width()/2, tft.height()/2);
+    tft.drawString("(plein air)", tft.width()/2, tft.height()/2+50);
+    tft.unloadFont();
+    performCalibration();
+    mainTask.enable();
+    calibrationInProgress = 0;
+  });
   scd.begin(Wire);
-  uint16_t error;
-  char errorMessage[256];
   // stop potentially previously started measurement
-  error = scd.stopPeriodicMeasurement();
-  if (error) {
-    Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
+  scd.stopPeriodicMeasurement();
+  scd.setAutomaticSelfCalibration(false);
   
   tft.init();
   tft.setRotation(0);
@@ -66,22 +98,50 @@ void setup()
   // splash screen:
   tft.setSwapBytes(true);
   tft.pushImage(0, 0,  135, 240, c2c);
-  espDelay(5000);
+  espDelay(6000);
 
 
   // Start Measurement
-  error = scd.startPeriodicMeasurement();
-  if (error) {
-    Serial.print("Error trying to execute startPeriodicMeasurement(): ");
-    errorToString(error, errorMessage, 256);
-    Serial.println(errorMessage);
-  }
+  scd.startPeriodicMeasurement();
   Serial.println("Waiting for first measurement... (5 sec)");
 
   runner.init();
   runner.addTask(mainTask);
   mainTask.enable();
 }
+
+void performCalibration() {
+  // should check 3 minutes runtime before
+  scd.stopPeriodicMeasurement();
+  uint16_t correction;
+  scd.performForcedRecalibration(415, correction);
+  scd.startPeriodicMeasurement();
+}
+
+void showVoltage()
+{
+    static uint64_t timeStamp = 0;
+    int vref = 1100;
+    if (millis() - timeStamp > 1000) {
+        timeStamp = millis();
+        uint16_t v = analogRead(ADC_PIN);
+        float voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+        tft.loadFont(Purisa_24);
+        tft.fillScreen(TFT_WHITE);
+        tft.setTextColor(TFT_BLACK, TFT_WHITE);
+        tft.setTextDatum(MC_DATUM);
+        if (voltage > 4.5) {
+          tft.drawString("USB",  tft.width() / 2, tft.height() / 2 - 25);
+          tft.drawString(String(voltage) + " V",  tft.width() / 2, tft.height() / 2 + 25);
+        } else {
+          tft.drawString("Battery",  tft.width() / 2, tft.height() / 2 - 25);
+          tft.drawString(String((int)((voltage-3)/1.26*100)) + " %",  tft.width() / 2, tft.height() / 2);
+          tft.drawString(String(voltage) + " V",  tft.width() / 2, tft.height() / 2 + 25);
+        }
+        tft.unloadFont();
+    }
+}
+
 
 void measure() {
 
@@ -144,4 +204,6 @@ void measure() {
 void loop()
 {
   runner.execute();
+  btn1.loop();
+  btn2.loop();
 }

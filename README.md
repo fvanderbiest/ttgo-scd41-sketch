@@ -9,5 +9,9 @@
 Arduino IDE config:
  * board manager url set to https://dl.espressif.com/dl/package_esp32_index.json
  * board type set to "ESP32 Dev Module" with:
+   * Upload Speed set to 460800
+   * CPU Freq 240 MHz
+   * Flash Freq 80MHz
+   * Flash Size 16Mb (128Mb)
+   * Partition Scheme 16 Mb Flash (3 Mb App / 9 Mb FATFS) - MANDATORY
    * PSRAM option set to disabled
-   * Upload Speed set to 115200

@@ -116,7 +116,6 @@ void setup()
 
   // Start Measurement
   scd.startPeriodicMeasurement();
-  Serial.println("Waiting for first measurement... (5 sec)");
 
   runner.init();
   runner.addTask(mainTask);
@@ -202,8 +201,12 @@ void measure() {
     tft.loadFont(Purisa_12);
     if (co2 > 1000) {
       tft.drawString("Quittez la pièce", tft.width()- 70, tft.height() - 30);
-    } else if (co2 < 800) { 
-      tft.drawString("Tout va bien", tft.width()- 70, tft.height() - 30);
+    } else if (co2 < 800) {
+      if (co2 < 600) {
+        tft.drawString("Masque non requis", tft.width()- 70, tft.height() - 30);
+      } else {
+        tft.drawString("Masque requis", tft.width()- 70, tft.height() - 30);
+      }
     } else {
       tft.drawString("Ouvrez les fenêtres", tft.width()- 70, tft.height() - 30);
     }

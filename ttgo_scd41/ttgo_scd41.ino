@@ -58,14 +58,22 @@ void setup()
   });
   btn2.setLongClickTime(2000);
   btn2.setPressedHandler([](Button2 & b) {
-    // stop measurements...
-    mainTask.disable();
     tft.fillScreen(TFT_WHITE);
     tft.setTextColor(TFT_BLACK, TFT_WHITE);
     tft.loadFont(Purisa_24);
-    tft.drawString("Appui 2s", tft.width()/2, tft.height()/2-50);
-    tft.drawString("pour", tft.width()/2, tft.height()/2);
-    tft.drawString("calibration", tft.width()/2, tft.height()/2+50);
+    // check hardware has been running for more than 3 minutes
+    // as stated in the documentation
+    if (millis() > 180000) {
+      // stop measurements...
+      mainTask.disable();
+      tft.drawString("Appui 2s", tft.width()/2, tft.height()/2-50);
+      tft.drawString("pour", tft.width()/2, tft.height()/2);
+      tft.drawString("calibration", tft.width()/2, tft.height()/2+50);
+    } else {
+      tft.drawString("Calibration", tft.width()/2, tft.height()/2-50);
+      tft.drawString("possible", tft.width()/2, tft.height()/2);
+      tft.drawString("dans " + String(int((180000-millis())/1000)) + " s", tft.width()/2, tft.height()/2+50);
+    }
     tft.unloadFont();
   });
   btn2.setReleasedHandler([](Button2 & b) {
@@ -74,6 +82,9 @@ void setup()
     }
   });
   btn2.setLongClickHandler([](Button2 & b) {
+    if (millis() < 180000) {
+      return;
+    }
     calibrationInProgress = 1;
     tft.fillScreen(TFT_WHITE);
     tft.setTextColor(TFT_BLACK, TFT_WHITE);
@@ -112,7 +123,6 @@ void setup()
 }
 
 void performCalibration() {
-  // should check 3 minutes runtime before
   scd.stopPeriodicMeasurement();
   uint16_t correction;
   scd.performForcedRecalibration(415, correction);

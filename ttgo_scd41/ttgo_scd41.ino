@@ -101,6 +101,7 @@ void setup()
   // stop potentially previously started measurement
   scd.stopPeriodicMeasurement();
   scd.setAutomaticSelfCalibration(false);
+  scd.setTemperatureOffset(6.9);
   
   tft.init();
   tft.setRotation(0);

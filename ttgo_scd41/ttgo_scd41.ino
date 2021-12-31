@@ -35,7 +35,7 @@ SensirionI2CScd4x scd;
 
 TFT_eSPI tft = TFT_eSPI(135, 240); // pins defined in User_Setup.h
 Scheduler runner;
-
+boolean BLE = false;
 int calibrationInProgress = 0;
 
 // For long time delay, it is recommended to use shallow sleep, which can effectively reduce the current consumption
@@ -52,7 +52,12 @@ void setup()
 {
   Serial.begin(115200);
   Wire.begin();
-  PhyphoxBLE::start("CO2 Monitor", &CO2Monitor[0], sizeof(CO2Monitor));
+  float voltage = getVoltage();
+  if (voltage > 4.5) {
+    // start BLE server when not on battery
+    PhyphoxBLE::start("SCD41-based CO2 Monitor", &CO2Monitor[0], sizeof(CO2Monitor));
+    BLE = true;
+  }
   btn1.setPressedHandler([](Button2 & b) {
     showVoltage();
   });
@@ -129,14 +134,20 @@ void performCalibration() {
   scd.startPeriodicMeasurement();
 }
 
+float getVoltage() {
+  uint16_t v = analogRead(ADC_PIN);
+  int vref = 1100;
+  float voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+  return voltage;
+}
+
 void showVoltage()
 {
     static uint64_t timeStamp = 0;
-    int vref = 1100;
     if (millis() - timeStamp > 1000) {
         timeStamp = millis();
-        uint16_t v = analogRead(ADC_PIN);
-        float voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+        //uint16_t v = analogRead(ADC_PIN);
+        float voltage = getVoltage(); //((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
         tft.loadFont(Purisa_24);
         tft.fillScreen(TFT_WHITE);
         tft.setTextColor(TFT_BLACK, TFT_WHITE);
@@ -174,8 +185,9 @@ void measure() {
 
     c=float(co2);
     t = millis()/1000;
-    PhyphoxBLE::write(c, temperature, humidity, t);
-
+    if (BLE) {
+      PhyphoxBLE::write(c, temperature, humidity, t);
+    }
     if (co2 > 1000) {
       tft.setTextColor(TFT_BLACK, TFT_RED);
       tft.fillScreen(TFT_RED);
